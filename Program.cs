@@ -113,10 +113,10 @@ namespace configgen2
         {
             MakeLog("Szerver konfig generálása");
             StreamWriter writer = new StreamWriter("config/Szerver.conf");
-            writer.WriteLine(interfaceGen(datas[0, 0], datas[0, 1], datas[0, 3]).Replace("/32","/24"));
+            writer.WriteLine(interfaceGen(datas[0, 0], datas[0, 1], datas[0, 2]).Replace("/32","/24"));
             for (int q = 1; q < datas.GetLength(0); q++)
             {
-                writer.WriteLine(clientPeerGen(datas[q, 0], datas[q, 1], datas[q, 2]));
+                writer.WriteLine(clientPeerGen(datas[q, 0], datas[q, 1], datas[q, 3]));
                 MakeLog($"{datas[q,0]} szerverrevaló felcsatlakozásának előkészítése");
             }
             writer.Close();
