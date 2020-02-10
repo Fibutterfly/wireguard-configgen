@@ -1,0 +1,11 @@
+Szerver
+Andi-Asztali
+Andi-Laptop
+Andi-Telo
+Andi-Tablet
+Illés-Asztali
+Illés-Laptop
+Illés-Teló
+Illés-Tablet
+Levi-Asztali
+Levi-Teló
