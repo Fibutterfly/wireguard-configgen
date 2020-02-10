@@ -168,7 +168,7 @@ namespace configgen2
                         "# Name = Szerver\n"+
                         $"PublicKey = {server}\n"+
                         "AllowedIPs = 192.168.69.0/24\n"+
-                        "Endpont = foxy.varkovi.hu:12000\n";
+                        "Endpoint = foxy.varkovi.hu:12000\n";
            return rtn; 
         }
         static void Main(string[] args)
