@@ -129,7 +129,7 @@ namespace configgen2
             for (int i = 1; i < ipTable.GetLength(0); i++)
             {
                 StreamWriter ncf = new StreamWriter($"config/{ipTable[i,0]}.conf");
-                MakeLog($"config/{ipTable[i,0]}.conf fájl előkészítése");
+                MakeLog($"config/{ipTable[i,0]}.conf fájl előkészítésea");
                 ncf.WriteLine(interfaceGen(ipTable[i,0],ipTable[i,1],ipTable[i,2]));
                 ncf.WriteLine(serverPeer);
                 for (int q = 1; q < ipTable.GetLength(0); q++)
