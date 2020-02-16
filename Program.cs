@@ -97,7 +97,8 @@ namespace configgen2
         }
         static string[,] IPtable(string[] names)
         {
-            string[,] rtn = new string[names.Length,4];
+            string[,] rtn = new string[names.Length,5];
+            int startport = 12000;
             for (int i = 0; i < names.Length; i++)
             {
                 rtn[i,0] = names[i];
@@ -106,6 +107,7 @@ namespace configgen2
                 rtn[i,2] = helper[0];
                 helper = ReadFile($"keys/public/{names[i]}.pub");
                 rtn[i,3] = helper[0];
+                rtn[i,4] = $"{startport+i}";
             }
             return rtn;
         }
@@ -113,10 +115,11 @@ namespace configgen2
         {
             MakeLog("Szerver konfig generálása");
             StreamWriter writer = new StreamWriter("config/Szerver.conf");
-            writer.WriteLine(interfaceGen(datas[0, 0], datas[0, 1], datas[0, 2]).Replace("/32","/24"));
+            //System.Console.WriteLine(datas[0,4]);
+            writer.WriteLine(interfaceGen(datas[0, 0], datas[0, 1], datas[0, 2],datas[0,4]).Replace("/32","/24"));
             for (int q = 1; q < datas.GetLength(0); q++)
             {
-                writer.WriteLine(clientPeerGen(datas[q, 0], datas[q, 1], datas[q, 3]));
+                writer.WriteLine(clientPeerGen(datas[q, 0], datas[q, 1], datas[q, 3],"szerver"));
                 MakeLog($"{datas[q,0]} szerverrevaló felcsatlakozásának előkészítése");
             }
             writer.Close();
@@ -130,34 +133,35 @@ namespace configgen2
             {
                 StreamWriter ncf = new StreamWriter($"config/{ipTable[i,0]}.conf");
                 MakeLog($"config/{ipTable[i,0]}.conf fájl előkészítésea");
-                ncf.WriteLine(interfaceGen(ipTable[i,0],ipTable[i,1],ipTable[i,2]));
+                ncf.WriteLine(interfaceGen(ipTable[i,0],ipTable[i,1],ipTable[i,2],ipTable[i,4]));
                 ncf.WriteLine(serverPeer);
                 for (int q = 1; q < ipTable.GetLength(0); q++)
                 {
                     if(i != q)
                     {
                         MakeLog($"P2P előkészítése {ipTable[i,0]} <-> {ipTable[q,0]}");
-                        ncf.WriteLine(clientPeerGen(ipTable[q,0],ipTable[q,1],ipTable[q,3]));
+                        ncf.WriteLine(clientPeerGen(ipTable[q,0],ipTable[q,1],ipTable[q,3],ipTable[q,4]));
                     }
                 }
                 ncf.Close();
             }
         }
-        static string clientPeerGen(string name, string ip, string key)
+        static string clientPeerGen(string name, string ip, string key,string endpoint="#ERROR: ITT DOMAINEK KÉNE LENNIE, DE NINCS")
         {
             string rtn = "[Peer]\n"+
                         $"# Name = {name}\n"+
                         $"PublicKey = {key}\n"+
-                        $"AllowedIPs = {ip}/32\n";
+                        $"AllowedIPs = {ip}/32\n"+
+                        $"{((endpoint != "szerver")?$"Endpoint = {name}.se.xy:{endpoint}":"")}";
             return rtn;
         }
-        static string interfaceGen(string name, string ip, string key)
+        static string interfaceGen(string name, string ip, string key, string port = "#ERROR: ITT PORTNAK KÉNE LENNIE, DE NINCS")
         {
             MakeLog($"interface generálása {name} részére");
             string rtn = "[Interface]\n"+
                         $"# Name = {name}\n"+
                         $"Address = {ip}/32\n"+
-                        "ListenPort = 12000\n"+
+                        $"ListenPort = {port}\n"+
                         $"PrivateKey = {key}\n";
             return rtn;
         }
