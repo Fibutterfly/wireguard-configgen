@@ -17,7 +17,7 @@ namespace VPNConfigGenerator
         static void Main(string[] args)
         {
             logger = new Logger("logger.log");
-            if(args.Length == 0 || !File.Exists(args[0]))
+            if (args.Length == 0 || !File.Exists(args[0]))
             {
                 logger.Write("Nincs paraméter vagy a megadott fájl nem létezik!", Logger.LogType.Warning);
                 logger.Dispose();
@@ -33,7 +33,8 @@ namespace VPNConfigGenerator
             List<Peer> peers = new List<Peer>();
 
             // Server
-            Peer server = new Peer() {
+            Peer server = new Peer()
+            {
                 Name = "Server",
                 Address = "192.168.69.1/24",
                 Port = startPort,
@@ -45,7 +46,8 @@ namespace VPNConfigGenerator
             peers.Add(server);
             foreach (string name in names)
             {
-                Peer peer = new Peer() {
+                Peer peer = new Peer()
+                {
                     Name = name,
                     Address = $"192.168.69.{startIP}",
                     Port = startPort + startIP,
@@ -68,7 +70,7 @@ namespace VPNConfigGenerator
                 conf.WriteLine(currentPeer.getAsInterface());
                 foreach (Peer otherPeer in peers)
                 {
-                    if(currentPeer != otherPeer)
+                    if (currentPeer != otherPeer)
                         conf.WriteLine(otherPeer.getAsPeer());
                 }
                 conf.Close();
@@ -79,7 +81,8 @@ namespace VPNConfigGenerator
         }
         static Keys GetPeerKeys(Peer peer)
         {
-            Keys keys = new Keys() { 
+            Keys keys = new Keys()
+            {
                 PrivateFile = $"{KEY_PRIVATE_LOC}/{peer.Name}.key",
                 PublicFile = $"{KEY_PUBLIC_LOC}/{peer.Name}.pub"
             };
@@ -206,8 +209,9 @@ namespace VPNConfigGenerator
         private StreamWriter stream;
         public Logger(string file)
         {
-            stream = new StreamWriter(file, true);
-            stream.WriteLine($"-------------------------- NEW SESSION: {DateTime.Now.ToString()} --------------------------");
+            this.stream = new StreamWriter(file, true);
+            this.stream.AutoFlush = true;
+            this.stream.WriteLine($"-------------------------- NEW SESSION: {DateTime.Now.ToString()} --------------------------");
         }
 
         public void Write(string what, LogType type = LogType.Info)
