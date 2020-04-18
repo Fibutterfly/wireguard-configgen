@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -6,64 +7,102 @@ namespace configgen2
 {
     class Program
     {
-        static void MakeLog(string what)
+        public const string KEY_PRIVATE_LOC = "keys/private";
+        public const string KEY_PUBLIC_LOC = "keys/public";
+        const string CONFIG_LOC = "config";
+        private static Logger logger = new Logger("logger.log");
+
+        static void Main(string[] args)
         {
-            StreamWriter log = new StreamWriter("log.txt", append: true);
-            log.WriteLine($"{DateTime.Now.ToString("yyyy:MM:dd-HH:mm:ss")}: {what}");
-            log.Close();
+            List<Peer> peers = new List<Peer>();
+            if (args.Length == 0 || !File.Exists(args[0]))
+            {
+                logger.Write("Nincs paraméter vagy a megadott fájl nem létezik!", Logger.LogType.Warning);
+                logger.Dispose();
+                Environment.Exit(0);
+            }
+            logger.Write($"'{args[0]}' fájl beolvasása...");
+            logger.Write($"Kulcsok létrehozása ellenőrzése");
+            IfDirectoryNotExistThanCreate("config");
+            IfDirectoryNotExistThanCreate("keys");
+            IfDirectoryNotExistThanCreate(KEY_PRIVATE_LOC);
+            IfDirectoryNotExistThanCreate(KEY_PUBLIC_LOC);
+            const int startport = 12000;
+            const int startip = 1;
+            StreamReader file = new StreamReader(args[0]);
+            int i = 0;
+            while(!file.EndOfStream)
+            {
+                string[] row = file.ReadLine().Split(';');
+                Peer temp = new Peer()
+                {
+                    name = row[0],
+                    Address = $"192.168.69.{startip+i}",
+                    ListenPort = $"{startport + i}",
+                    Endpoint = (row.Length > 1)?(row[1]):null
+                };
+                temp.init();
+                i++;
+                peers.Add(temp);
+            }
+            file.Close();
+            makeConfigs(peers);
+            //Console.WriteLine(i);
+            logger.Dispose();
+        }
+        static void makeConfigs(List<Peer> peers)
+        {
+            for (int i = 0; i < peers.Count; i++)
+            {
+                StreamWriter conf = new StreamWriter($"{CONFIG_LOC}/{peers[i].name}.conf");
+                conf.WriteLine(peers[i].getInterface());
+                for (int q = 0; q < peers.Count; q++)
+                {
+                    if(i != q)
+                    {
+                        conf.WriteLine(peers[q].getPeer());
+                    }
+                }
+                conf.Close();
+            }
+        }
+        static void IfDirectoryNotExistThanCreate(string path)
+        {
+            logger.Write($"{path} mappa ellenőrzése");
+            if (!Directory.Exists(path))
+            {
+                DirectoryInfo di = Directory.CreateDirectory(path);
+                logger.Write($"A {path} mappa létrehozása");
+            }
         }
         static bool fileCheck(string path)
         {
-            MakeLog($"{path} fájl ellenőrzése");
+            logger.Write($"{path} fájl ellenőrzése");
             if (!File.Exists(path))
             {
-                MakeLog($"{path} nem létezik");
+                logger.Write($"{path} nem létezik");
                 Console.WriteLine("Nem létezik");
                 return false;
             }
             return true;
         }
-        static string[] ReadFile(string path)
+
+        static void KeyCheck(string owner)
         {
-            MakeLog($"{path} beolvasása");
-            StreamReader file = new StreamReader(path);
-            List<string> lines = new List<string>();
-            while(!file.EndOfStream)
+            logger.Write($"{owner} privát kulcsának ellenőrzése");
+            if (!fileCheck($"keys/private/{owner}.key"))
             {
-                lines.Add(file.ReadLine());
-            }
-            file.Close();
-            return lines.ToArray();
-        }
-        static bool TblCheck(string[] tbl)
-        {
-            MakeLog("A konfig tartalmának ellenőrzése");
-            if (tbl.Length < 1)
-            {
-                MakeLog("A konfigban nem volt adat");
-                Console.WriteLine("A konfigban nincs adat");
-                return false;
-            }
-            return true;
-        }
-        static void IfDirectoryNotExistThanCreate(string path)
-        {
-            MakeLog($"{path} mappa ellenőrzése");
-            if (!Directory.Exists(path))
-            {
-                DirectoryInfo di = Directory.CreateDirectory(path);
-                MakeLog($"A {path} mappa létrehozása");
+                logger.Write($"{owner} privát kulcsa nem létezik");
+                logger.Write($"{owner} publikus kulcsának ellenőrzése");
+                if (fileCheck($"keys/public/{owner}.pub"))
+                {
+                    logger.Write($"{owner} publikus kulcsának törlése");
+                    RunLinuxCommand($@"rm public/{owner}.pub");
+                }
+                RunLinuxCommand($"umask 003 && wg genkey > keys/private/{owner}.key && wg pubkey <  keys/private/{owner}.key > keys/public/{owner}.pub");
             }
         }
-        static void CheckKeyFolder()
-        {
-            string[] folders = {"keys","keys/public","keys/private"};
-            for (int i = 0; i < folders.Length; i++)
-            {
-                IfDirectoryNotExistThanCreate(folders[i]);
-            }
-        }
-         static void RunLinuxCommand(string cmd)
+        static void RunLinuxCommand(string cmd)
         {
             string ecmd = cmd.Replace("\"","\\\"");
             System.Diagnostics.Process process = new System.Diagnostics.Process();
@@ -77,129 +116,83 @@ namespace configgen2
             process.StartInfo = startInfo;
             process.Start();
             process.WaitForExit();
-            MakeLog($@"A következő !LINUXOS! shell parancs futott le: {cmd}");
-        }
-       
-        static void KeyCheck(string owner)
-        {
-            MakeLog($"{owner} privát kulcsának ellenőrzése");
-            if (!fileCheck($"keys/private/{owner}.key"))
-            {
-                MakeLog($"{owner} privát kulcsa nem létezik");
-                MakeLog($"{owner} publikus kulcsának ellenőrzése");
-                if (fileCheck($"keys/public/{owner}.pub"))
-                {
-                    MakeLog($"{owner} publikus kulcsának törlése");
-                    RunLinuxCommand($@"rm public/{owner}.pub");
-                }
-                RunLinuxCommand($"umask 003 && wg genkey > keys/private/{owner}.key && wg pubkey <  keys/private/{owner}.key > keys/public/{owner}.pub");
-            }
-        }
-        static string[,] IPtable(string[] names)
-        {
-            string[,] rtn = new string[names.Length,5];
-            int startport = 12000;
-            for (int i = 0; i < names.Length; i++)
-            {
-                rtn[i,0] = names[i];
-                rtn[i,1] = $"192.168.69.{i+1}";
-                string[] helper = ReadFile($"keys/private/{names[i]}.key");
-                rtn[i,2] = helper[0];
-                helper = ReadFile($"keys/public/{names[i]}.pub");
-                rtn[i,3] = helper[0];
-                rtn[i,4] = $"{startport+i}";
-            }
-            return rtn;
-        }
-        static void makeServerConfig(string[,] datas)
-        {
-            MakeLog("Szerver konfig generálása");
-            StreamWriter writer = new StreamWriter("config/Szerver.conf");
-            //System.Console.WriteLine(datas[0,4]);
-            writer.WriteLine(interfaceGen(datas[0, 0], datas[0, 1], datas[0, 2],datas[0,4]).Replace("/32","/24"));
-            for (int q = 1; q < datas.GetLength(0); q++)
-            {
-                writer.WriteLine(clientPeerGen(datas[q, 0], datas[q, 1], datas[q, 3],"szerver"));
-                MakeLog($"{datas[q,0]} szerverrevaló felcsatlakozásának előkészítése");
-            }
-            writer.Close();
-        }
-        static void makeConfigFiles(string[,] ipTable)
-        {
-            string serverPeer = serverPeerGen(ipTable[0,3]);
-            makeServerConfig(ipTable);
-            //Console.WriteLine(serverPeer);
-            for (int i = 1; i < ipTable.GetLength(0); i++)
-            {
-                StreamWriter ncf = new StreamWriter($"config/{ipTable[i,0]}.conf");
-                MakeLog($"config/{ipTable[i,0]}.conf fájl előkészítésea");
-                ncf.WriteLine(interfaceGen(ipTable[i,0],ipTable[i,1],ipTable[i,2],ipTable[i,4]));
-                ncf.WriteLine(serverPeer);
-                for (int q = 1; q < ipTable.GetLength(0); q++)
-                {
-                    if(i != q)
-                    {
-                        MakeLog($"P2P előkészítése {ipTable[i,0]} <-> {ipTable[q,0]}");
-                        ncf.WriteLine(clientPeerGen(ipTable[q,0],ipTable[q,1],ipTable[q,3],ipTable[q,4]));
-                    }
-                }
-                ncf.Close();
-            }
-        }
-        static string clientPeerGen(string name, string ip, string key,string endpoint="#ERROR: ITT DOMAINEK KÉNE LENNIE, DE NINCS")
-        {
-            string rtn = "[Peer]\n"+
-                        $"# Name = {name}\n"+
-                        $"PublicKey = {key}\n"+
-                        $"AllowedIPs = {ip}/32\n"+
-                        $"{((endpoint != "szerver")?$"Endpoint = {name}.se.xy:{endpoint}":"")}";
-            return rtn;
-        }
-        static string interfaceGen(string name, string ip, string key, string port = "#ERROR: ITT PORTNAK KÉNE LENNIE, DE NINCS")
-        {
-            MakeLog($"interface generálása {name} részére");
-            string rtn = "[Interface]\n"+
-                        $"# Name = {name}\n"+
-                        $"Address = {ip}/32\n"+
-                        $"ListenPort = {port}\n"+
-                        $"PrivateKey = {key}\n";
-            return rtn;
-        }
-        static string serverPeerGen(string server)
-        {
-           MakeLog("Szerver peer létrehozása");
-           string rtn = "[Peer]\n"+
-                        "# Name = Szerver\n"+
-                        $"PublicKey = {server}\n"+
-                        "AllowedIPs = 192.168.69.0/24\n"+
-                        "Endpoint = foxy.varkovi.hu:12000\n";
-           return rtn; 
-        }
-        static void Main(string[] args)
-        {
-            if(args.GetLength(0) == 0)
-            {
-                Console.WriteLine("Nincs paraméter");
-                Environment.Exit(0);
-            }
-            string userlist = args[0];
-            if(!fileCheck(userlist))
-            {
-                Environment.Exit(0);
-            }
-            string[] names = ReadFile(userlist);
-            if (!TblCheck(names))
-            {
-                Environment.Exit(0);
-            }
-            CheckKeyFolder();
-            for (int i = 0; i < names.Length; i++)
-            {
-                KeyCheck(names[i]);
-            }
-            IfDirectoryNotExistThanCreate("config");
-            string[,] ipTable = IPtable(names);
-            makeConfigFiles(ipTable);
+            logger.Write($@"A következő !LINUXOS! shell parancs futott le: {cmd}");
         }
     }
+    class Peer
+    {
+        public string name = "Hiányzik a név";
+        public string Address = "Hiányzó cím";
+        public string subnet = "32";
+        public string PrivateKey = "Hiányzó kulcs";
+        public string PublicKey = "Hiányzó kulcs";
+        public string ListenPort = "Hiányzó port";
+        public string? Endpoint;
+        public void init()
+        {
+            StreamReader pri = new StreamReader($"{Program.KEY_PRIVATE_LOC}/{name}.key");
+            PrivateKey = pri.ReadLine();
+            pri.Close();
+            StreamReader pub = new StreamReader($"{Program.KEY_PUBLIC_LOC}/{name}.pub");
+            PublicKey = pub.ReadLine();
+            pub.Close();
+        }
+        public string getPeer()
+        {
+            string rtn = $"[Peer]\n"
+                        +$"# Name = {name}\n"
+                        +$"PublicKey = {PublicKey}\n"
+                        +$"AllowedIPs = {Address}/{subnet}\n";
+            if (Endpoint != null)
+            {
+                rtn += $"Endpoint = {Endpoint}:{ListenPort}\n";
+            }
+            return rtn;
+        }
+        public string getInterface()
+        {
+            string rtn =$"[Interface]\n"
+                       +$"# Name = {name}\n"
+                       +$"Address = {Address}/{subnet}\n"
+                       +$"ListenPort = {ListenPort}\n"
+                       +$"PrivateKey = {PrivateKey}\n";
+            return rtn;
+        }
+    }
+    class Logger : IDisposable
+    {
+        public enum LogType { Info, Warning, Error }
+        private StreamWriter stream;
+        public Logger(string file)
+        {
+            this.stream = new StreamWriter(file, true);
+            this.stream.AutoFlush = true;
+            this.stream.WriteLine($"-------------------------- NEW SESSION: {DateTime.Now.ToString()} --------------------------");
+        }
+
+        public void Write(string what, LogType type = LogType.Info)
+        {
+            string typeString = "";
+            switch (type)
+            {
+                case LogType.Info:
+                    typeString = "INFO";
+                    break;
+                case LogType.Warning:
+                    typeString = "WARNING";
+                    break;
+                case LogType.Error:
+                    typeString = "ERROR";
+                    break;
+            }
+            this.stream.WriteLine($"[{typeString}]: {what}");
+            Console.WriteLine($"[{typeString}]: {what}");
+        }
+
+        public void Dispose()
+        {
+            this.stream.Close();
+        }
+    }
+
 }
