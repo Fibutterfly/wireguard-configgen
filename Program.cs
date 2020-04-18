@@ -34,6 +34,7 @@ namespace configgen2
             while(!file.EndOfStream)
             {
                 string[] row = file.ReadLine().Split(';');
+                KeyCheck(row[0]);
                 Peer temp = new Peer()
                 {
                     name = row[0],
